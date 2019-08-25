@@ -11,7 +11,8 @@ class Provider extends Component {
 
     this.notifySubscribers = this.notifySubscribers.bind(this)
     const subscription = new Subscription(store)
-    subscription.onStateChange = this.notifySubscribers
+    // 将subscription.onStateChange 定义为通知subscriber的方法
+    subscription.onStateChange = this.notifySubscribers 
 
     this.state = {
       store,
@@ -24,13 +25,15 @@ class Provider extends Component {
   componentDidMount() {
     this._isMounted = true
 
-    this.state.subscription.trySubscribe()
+    this.state.subscription.trySubscribe() // 将 notifySubscribers 注册到 subscription上
 
+    // 当previousState 和 当前store中的state不同时，通知所有观察者
     if (this.previousState !== this.props.store.getState()) {
       this.state.subscription.notifyNestedSubs()
     }
   }
 
+  // 解注册观察者
   componentWillUnmount() {
     if (this.unsubscribe) this.unsubscribe()
 
@@ -39,6 +42,7 @@ class Provider extends Component {
     this._isMounted = false
   }
 
+  // 当 prop 中 store 更新时，要重新解绑并创建一个新的 Subscription 对象
   componentDidUpdate(prevProps) {
     if (this.props.store !== prevProps.store) {
       this.state.subscription.tryUnsubscribe()
@@ -48,6 +52,7 @@ class Provider extends Component {
     }
   }
 
+  // 通知观察者执行的方法
   notifySubscribers() {
     this.state.subscription.notifyNestedSubs()
   }

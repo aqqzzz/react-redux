@@ -114,7 +114,7 @@ export default function connectAdvanced(
       customStoreWarningMessage
   )
 
-  const Context = context
+  const Context = context // ？？
 
   return function wrapWithConnect(WrappedComponent) {
     if (process.env.NODE_ENV !== 'production') {
@@ -156,6 +156,7 @@ export default function connectAdvanced(
     const usePureOnlyMemo = pure ? useMemo : callback => callback()
 
     function ConnectFunction(props) {
+      // 当props发生变化时更新 context、forwardeRef、wrapperProps
       const [propsContext, forwardedRef, wrapperProps] = useMemo(() => {
         // Distinguish between actual "data" props that were passed to the wrapper component,
         // and values needed to control behavior (forwarded refs, alternate context instances).
@@ -164,6 +165,7 @@ export default function connectAdvanced(
         return [context, forwardedRef, wrapperProps]
       }, [props])
 
+      // 当 propsContext或者Context变动时 重新计算 即将使用的Context对象
       const ContextToUse = useMemo(() => {
         // Users may optionally pass in a custom context instance to use instead of our ReactReduxContext.
         // Memoize the check that determines which context instance we should use.
@@ -192,6 +194,7 @@ export default function connectAdvanced(
 
       const store = props.store || contextValue.store
 
+      // store 发生变化时重新计算 childSelector
       const childPropsSelector = useMemo(() => {
         // The child props selector needs the store reference as an input.
         // Re-create this selector whenever the store changes.

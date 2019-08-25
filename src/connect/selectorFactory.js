@@ -15,6 +15,12 @@ export function impureFinalPropsSelectorFactory(
   }
 }
 
+// 一个小优化
+// 当 options.pure 为 true 时，当传入 react-redux 的 state 和 props 发生变更时，这里会根据对比结果做一个优化
+// store.state 全等判断为false && props 浅比较结果为false ---->  更新 mapStateToProps 和 mapDispatchToProps 的结果
+// store.state 全等判断为false ------> 更新 mapStateToProps
+// props 浅比较结果为false -----> 更新 mapStateToProps 和 mapDispatchToProps
+// 然后把这个merge结果返回
 export function pureFinalPropsSelectorFactory(
   mapStateToProps,
   mapDispatchToProps,
@@ -29,6 +35,7 @@ export function pureFinalPropsSelectorFactory(
   let dispatchProps
   let mergedProps
 
+  // 初次调用
   function handleFirstCall(firstState, firstOwnProps) {
     state = firstState
     ownProps = firstOwnProps
@@ -39,6 +46,7 @@ export function pureFinalPropsSelectorFactory(
     return mergedProps
   }
 
+  // store.state 和 props 都更新了
   function handleNewPropsAndNewState() {
     stateProps = mapStateToProps(state, ownProps)
 
@@ -49,6 +57,7 @@ export function pureFinalPropsSelectorFactory(
     return mergedProps
   }
 
+  // prop 更新导致重新计算 stateProp 和 dispatchProp
   function handleNewProps() {
     if (mapStateToProps.dependsOnOwnProps)
       stateProps = mapStateToProps(state, ownProps)
@@ -60,6 +69,7 @@ export function pureFinalPropsSelectorFactory(
     return mergedProps
   }
 
+  // store.state 更新导致重新计算 stateProps（dispatchProp只和 prop 有关）
   function handleNewState() {
     const nextStateProps = mapStateToProps(state, ownProps)
     const statePropsChanged = !areStatePropsEqual(nextStateProps, stateProps)
@@ -71,8 +81,11 @@ export function pureFinalPropsSelectorFactory(
     return mergedProps
   }
 
+  // state 或 prop 更新导致重新调用
   function handleSubsequentCalls(nextState, nextOwnProps) {
+    // areOwnPropsEqual 浅比较
     const propsChanged = !areOwnPropsEqual(nextOwnProps, ownProps)
+    // areStatesEqual（比较的是 store.state）所以使用全等比较即可
     const stateChanged = !areStatesEqual(nextState, state)
     state = nextState
     ownProps = nextOwnProps
@@ -118,6 +131,7 @@ export default function finalPropsSelectorFactory(
     ? pureFinalPropsSelectorFactory
     : impureFinalPropsSelectorFactory
 
+  // 返回值为一个函数，接受 state 和 prop作为参数，计算获取下一次的 mergeProps
   return selectorFactory(
     mapStateToProps,
     mapDispatchToProps,
