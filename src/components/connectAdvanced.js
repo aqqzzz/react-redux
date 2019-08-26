@@ -25,6 +25,7 @@ const stringifyComponent = Comp => {
   }
 }
 
+
 function storeStateUpdatesReducer(state, action) {
   const [, updateCount] = state
   return [action.payload, updateCount + 1]
@@ -42,6 +43,7 @@ const useIsomorphicLayoutEffect =
 
 export default function connectAdvanced(
   /*
+    selectFactory 是用于计算 由于state，prop 和 dispatch 变化而变化的 selector Function 返回值的函数
     selectorFactory is a func that is responsible for returning the selector function used to
     compute new props from state, props, and dispatch. For example:
 
@@ -57,12 +59,15 @@ export default function connectAdvanced(
     Note that selectorFactory is responsible for all caching/memoization of inbound and outbound
     props. Do not use connectAdvanced directly without memoizing results between calls to your
     selector, otherwise the Connect component will re-render on every state or props change.
+    需要注意 selectorFactory 跟所有 缓存或记忆的 inbound / outbound props 都有关
+    不要在没有 记忆结果的调用中直接使用 connectAdvanced？？？？，否则的话 connect 包装的 component会在每次 state或props变化的时候重新渲染
   */
   selectorFactory,
   // options object:
   {
     // the func used to compute this HOC's displayName from the wrapped component's displayName.
     // probably overridden by wrapper functions such as connect()
+    // 获取包装组件 Connect 的名称
     getDisplayName = name => `ConnectAdvanced(${name})`,
 
     // shown in error messages
@@ -74,6 +79,7 @@ export default function connectAdvanced(
     renderCountProp = undefined,
 
     // determines whether this HOC subscribes to store changes
+    // 决定这个 HOC 组件是否要注册store的变化
     shouldHandleStateChanges = true,
 
     // REMOVED: the key of props/context to get the store
@@ -147,6 +153,7 @@ export default function connectAdvanced(
     const { pure } = connectOptions
 
     function createChildSelector(store) {
+      // selectorFactory 的返回值为一个函数，接受 state 和 prop作为参数，计算获取下一次的 mergeProps
       return selectorFactory(store.dispatch, selectorFactoryOptions)
     }
 
@@ -155,13 +162,14 @@ export default function connectAdvanced(
     // that just executes the given callback immediately.
     const usePureOnlyMemo = pure ? useMemo : callback => callback()
 
+    // props 是Connect组件上传入的 props
     function ConnectFunction(props) {
-      // 当props发生变化时更新 context、forwardeRef、wrapperProps
+      // 当props发生变化时更新 propsContext、forwardeRef、wrapperProps
       const [propsContext, forwardedRef, wrapperProps] = useMemo(() => {
         // Distinguish between actual "data" props that were passed to the wrapper component,
         // and values needed to control behavior (forwarded refs, alternate context instances).
         // To maintain the wrapperProps object reference, memoize this destructuring.
-        const { context, forwardedRef, ...wrapperProps } = props
+        const { context, forwardedRef, ...wrapperProps } = props // 为什么 context在props里
         return [context, forwardedRef, wrapperProps]
       }, [props])
 
@@ -195,12 +203,14 @@ export default function connectAdvanced(
       const store = props.store || contextValue.store
 
       // store 发生变化时重新计算 childSelector
+      // 生成新的函数，这个函数接受一个 state 和 prop 参数，通过 mapStateToPRops、mapDispatchToProps、mergeProps 计算新的 merge结果
       const childPropsSelector = useMemo(() => {
         // The child props selector needs the store reference as an input.
         // Re-create this selector whenever the store changes.
         return createChildSelector(store)
       }, [store])
 
+      // 当 store、didstorcomfromprops、context值发生变化时重新计算 subscription，notifyNestedSubs
       const [subscription, notifyNestedSubs] = useMemo(() => {
         if (!shouldHandleStateChanges) return NO_SUBSCRIPTION_ARRAY
 
@@ -208,7 +218,7 @@ export default function connectAdvanced(
         // connected to the store via props shouldn't use subscription from context, or vice versa.
         const subscription = new Subscription(
           store,
-          didStoreComeFromProps ? null : contextValue.subscription
+          didStoreComeFromProps ? null : contextValue.subscription // 如果 store 是从 context 中获取的，那么就要把 context中的 subscription作为 parent subscription 传入 当前观察类中去
         )
 
         // `notifyNestedSubs` is duplicated to handle the case where the component is unmounted in
@@ -234,6 +244,7 @@ export default function connectAdvanced(
 
         // Otherwise, put this component's subscription instance into context, so that
         // connected descendants won't update until after this component is done
+        // 为了保证 更新顺序，保证触发更新时，父组件先更新，其后代组件再更新
         return {
           ...contextValue,
           subscription
@@ -257,8 +268,9 @@ export default function connectAdvanced(
       const lastWrapperProps = useRef(wrapperProps)
       const childPropsFromStoreUpdate = useRef()
 
+      // 返回 根据connect提供的三个方法（state、dispatch、merge）计算得到的，与本组件相关的 props
       const actualChildProps = usePureOnlyMemo(() => {
-        // Tricky logic here:
+        // Tricky logic here: TODO 没看懂
         // - This render may have been triggered by a Redux store update that produced new child props
         // - However, we may have gotten new wrapper props after that
         // If we have new child props, and the same wrapper props, we know we should use the new child props as-is.
@@ -275,6 +287,7 @@ export default function connectAdvanced(
         // This will likely cause Bad Things (TM) to happen in Concurrent Mode.
         // Note that we do this because on renders _not_ caused by store updates, we need the latest store state
         // to determine what the child props should be.
+        // 通过 提供的 mapSTateToProps、mapDispatchToProps、mergeProps 计算新的 mergeProps
         return childPropsSelector(store.getState(), wrapperProps)
       }, [store, previousStateUpdateResult, wrapperProps])
 
@@ -294,6 +307,7 @@ export default function connectAdvanced(
       })
 
       // Our re-subscribe logic only runs when the store/subscription setup changes
+      // 没看懂这两个 useIsomorphicLayoutEffect 是在干什么
       useIsomorphicLayoutEffect(() => {
         // If we're not subscribed to the store, nothing to do here
         if (!shouldHandleStateChanges) return
@@ -330,6 +344,7 @@ export default function connectAdvanced(
           }
 
           // If the child props haven't changed, nothing to do here - cascade the subscription update
+          // 如果props没有变动，那么通知观察者列表中的子组件观察者
           if (newChildProps === lastChildProps.current) {
             notifyNestedSubs()
           } else {
@@ -378,9 +393,10 @@ export default function connectAdvanced(
 
       // Now that all that's done, we can finally try to actually render the child component.
       // We memoize the elements for the rendered child component as an optimization.
+      // 渲染connect子组件的关键代码，同时也使用 useMemo 对其做了一次优化
       const renderedWrappedComponent = useMemo(
-        () => <WrappedComponent {...actualChildProps} ref={forwardedRef} />,
-        [forwardedRef, WrappedComponent, actualChildProps]
+        () => <WrappedComponent {...actualChildProps} ref={forwardedRef} />, // 将计算得到的 actualChildProps 添加到真正的组件上
+        [forwardedRef, WrappedComponent, actualChildProps] // 当 forwradedRef、wrappedCompoennt 或 计算得到的 actualChildProps更新时触发更新
       )
 
       // If React sees the exact same element reference as last time, it bails out of re-rendering
@@ -390,6 +406,7 @@ export default function connectAdvanced(
           // If this component is subscribed to store updates, we need to pass its own
           // subscription instance down to our descendants. That means rendering the same
           // Context instance, and putting a different value into the context.
+          // 作为 Provider 的目的是把 当前的subscription 对象作为 context 传给子组件，保证 按照组件父子顺序 调用观察者函数
           return (
             <ContextToUse.Provider value={overriddenContextValue}>
               {renderedWrappedComponent}
@@ -422,6 +439,7 @@ export default function connectAdvanced(
       return hoistStatics(forwarded, WrappedComponent)
     }
 
+    // hoistStatics(targetComponent, sourceComponent)，将 sourceComponent上 非React 的静态方法copy到targetComponent上
     return hoistStatics(Connect, WrappedComponent)
   }
 }

@@ -93,6 +93,8 @@ export default class Subscription {
 
   trySubscribe() {
     // 初次注册，如果存在parentSub，则将 handleChangeWrapper 注册到 parentSub 中去，否则注册到当前组件对应的store中去
+    // 也就是把 notify 当前组件的方法，作为 观察者注册到 parent Subscription 上，添加到 parentSubscription 的 观察者列表里
+    // 保证了在父组件更新时，先调用父组件的观察者方法，再调用子组件的观察者方法
     if (!this.unsubscribe) {
       this.unsubscribe = this.parentSub
         ? this.parentSub.addNestedSub(this.handleChangeWrapper)
