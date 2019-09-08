@@ -56,7 +56,7 @@ export function wrapMapToPropsFunc(mapToProps, methodName) {
     // 进入后更新了 proxy.mapToProps，在之后调用的 proxy(state, props)中，使用的 proxy.mapToProps 是更新的
     // 初始化的 mapTOProps 为 传入的 mapStateToProps，那么再之后的额 proxy 函数中，这里就是直接返回了 mapStateToProps 函数的返回值
     // 因为这个函数是 mapStateToProps 和 mapDispatchToProps 公用的，
-    // 对于 mapDispatchToProps 而言，其返回值可能为函数（bindActionCreators）
+    // 对于 mapDispatchToProps 而言，其返回值可能为函数
     // 当返回值为函数时，将proxy.mapToProps 更新为返回的这个新函数，这个新函数也接受 两个参数（xxx, dispatch），
     proxy.mapToProps = function detectFactoryAndVerify(
       stateOrDispatch,

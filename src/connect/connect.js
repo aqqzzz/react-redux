@@ -63,6 +63,9 @@ export function createConnect({
       ...extraOptions
     } = {}
   ) {
+    // 此处返回值为一个接受（dispatch，Object）的函数，这个函数的返回值为 proxy 函数
+    // dispatch,Object 这个函数由 SelectorFactory 调用，该函数调用后返回的proxy 函数，为真正包装 mapXXXToProps 的函数
+    // 之后调用这个 proxy(mapXXXToProps, props)，返回的才是真正 connect 到对应组件上的 props
     const initMapStateToProps = match(
       mapStateToProps,
       mapStateToPropsFactories,
